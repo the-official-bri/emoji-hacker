@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Emoji Hacker 90s</title>
+<style>
+body{margin:0;background:#000;color:#00ff66;font-family:monospace;height:100vh;overflow:hidden}
+h1{margin:8px;font-size:22px}
+#status{padding:0 8px 8px 8px}
+#game{display:flex;height:calc(100vh - 70px)}
+#left{width:60%;padding:8px}
+#right{width:40%;padding:8px;border-left:1px solid #00ff66;overflow:auto}
+button{
+ display:block;width:100%;margin:2px 0;padding:4px;
+ background:#111;color:#00ff66;border:1px solid #00ff66;
+ font-size:18px;cursor:pointer;text-align:left;
+}
+button.guessed{background:rgba(255,0,0,0.22);}
+#log{white-space:pre-wrap}
+.cursor{animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+#sharePanel{display:none;margin-top:12px;border-top:1px solid #00ff66;padding-top:10px}
+</style>
+</head>
+<body>
+<h1>EMOJI HACKER</h1>
+<div id="status">GUESSES: 0/6 | TIME: <span id="timer">1:30</span></div>
+
+<div id="game">
+<div id="left"><div id="codes"></div></div>
+<div id="right">
+<div id="log"><span class="cursor">█</span></div>
+<div id="sharePanel">
+<div id="shareText"></div>
+<button id="shareButton">SHARE RESULTS</button>
+</div>
+</div>
+</div>
+
+<script>
+const pool=["🐸","🐱","🦇","🐺","🦉","🎸","🖤","⛓️","💀","🌙","⚡","🔥","⭐","🌧️","🎃"];
+const codeLength=5,totalCodes=20,maxGuesses=6;
+let guesses=0, gameOver=false, history=[], shareText="";
+
+const rand=a=>a[Math.floor(Math.random()*a.length)];
+function makeCode(){return Array.from({length:codeLength},()=>rand(pool));}
+
+const secret=makeCode();
+const candidates=[secret];
+while(candidates.length<totalCodes){
+ const c=makeCode(), s=c.join("");
+ if(!candidates.some(x=>x.join("")===s)) candidates.push(c);
+}
+candidates.sort(()=>Math.random()-0.5);
+
+function likeness(a,b){
+ let n=0;
+ for(let i=0;i<codeLength;i++) if(a[i]===b[i]) n++;
+ return n;
+}
+
+function appendLog(t){
+ const log=document.getElementById("log");
+ log.innerHTML=log.innerHTML.replace('<span class="cursor">█</span>','');
+ log.innerHTML+=t+"\n";
+ log.innerHTML+='<span class="cursor">█</span>';
+}
+
+function finish(win){
+ gameOver=true;
+ document.querySelectorAll("#codes button").forEach(b=>b.disabled=true);
+
+ const bars=history.map(s=>s===5?"🟩":s===4?"🟨":s===3?"🟧":s===2?"🟥":"⬛").join("");
+
+ shareText=`Emoji Hacker\n${win?"Solved":"Failed"} in ${guesses}/6 guesses\n\n${bars}\n\n⏱️ 90 Second Challenge`;
+
+ document.getElementById("shareText").textContent=shareText;
+ document.getElementById("sharePanel").style.display="block";
+}
+
+let timeLeft=90;
+const timerSpan=document.getElementById("timer");
+
+const countdown=setInterval(()=>{
+ if(gameOver){clearInterval(countdown);return;}
+ timeLeft--;
+ const m=Math.floor(timeLeft/60);
+ const s=String(timeLeft%60).padStart(2,"0");
+ timerSpan.textContent=`${m}:${s}`;
+ if(timeLeft<=0){
+   appendLog("TIME EXPIRED");
+   finish(false);
+   clearInterval(countdown);
+ }
+},1000);
+
+candidates.forEach((code,i)=>{
+ const btn=document.createElement("button");
+ btn.textContent=String(i+1).padStart(2,"0")+". "+code.join("");
+ btn.onclick=()=>{
+   if(gameOver) return;
+
+   guesses++;
+   document.getElementById("status").innerHTML=`GUESSES: ${guesses}/6 | TIME: <span id="timer">${timerSpan.textContent}</span>`;
+
+   const score=likeness(code,secret);
+   history.push(score);
+   btn.classList.add("guessed");
+
+   appendLog("> "+code.join(""));
+   appendLog("LIKENESS = "+score);
+   appendLog("");
+
+   if(score===5){
+     appendLog("ACCESS GRANTED");
+     finish(true);
+     clearInterval(countdown);
+     return;
+   }
+
+   if(guesses>=maxGuesses){
+     appendLog("ACCESS DENIED");
+     finish(false);
+     clearInterval(countdown);
+   }
+ };
+ document.getElementById("codes").appendChild(btn);
+});
+
+document.getElementById("shareButton").onclick=async()=>{
+ try{
+   if(navigator.share){
+     await navigator.share({title:"Emoji Hacker", text:shareText});
+   }else{
+     await navigator.clipboard.writeText(shareText);
+     alert("Results copied to clipboard.");
+   }
+ }catch(e){}
+};
+</script>
+</body>
+</html>
